@@ -1,33 +1,38 @@
 const bodyParser = require("body-parser");
+const cookieParser = require("cookie-parser");
+
 const express = require("express");
 const app = express();
 const cors = require("cors");
 const path = require("path");
 const jwt = require("jsonwebtoken");
-
+app.use(cookieParser());
+app.use(
+	cors({
+		origin: "http://localhost:5173", 
+		credentials: true,
+	})
+);
 require("dotenv").config();
 const SECRET_KEY = process.env.SECRET_KEY;
 const authenticateJWT = (req, res, next) => {
- 
-	
-  const bearerHeader = req.headers.authorization;
-  const bearer = bearerHeader.split(' ');
-  const token = bearer[1];
-  
+	// const bearerHeader = req.headers.authorization;
+	// const bearer = bearerHeader.split(' ');
+	// const token = bearer[1];
+	const token = req.cookies.jwt;
+
 	if (token) {
 		jwt.verify(token, SECRET_KEY, (err, uzer) => {
-      if (err) {
-        console.log(err);
-        return res.status(403).json({ message: "Forbidden" });
-        
+			if (err) {
+				console.log(err);
+				return res.status(403).json({ message: "Forbidden" });
 			} else {
 				req.uzer = uzer;
 				next();
 			}
 		});
 	} else {
-		res.staus(401).json({ message: "Unauthourized" });
-		next();
+		res.status(401).json({ message: "Unauthourized" });
 	}
 };
 app.use(cors());
@@ -90,7 +95,7 @@ app.post("/create", (req, res) => {
 		console.error("error occured :", error.message);
 	}
 });
-app.get("/view", (req, res) => {
+app.get("/view", authenticateJWT, (req, res) => {
 	res.json(users);
 });
 app.delete("/delete-note", (req, res) => {
@@ -105,7 +110,7 @@ app.delete("/delete-note", (req, res) => {
 });
 app.post("/sign-up", (req, res) => {
 	const { emailAddress, password } = req.body;
-	const uzer = userDB.find( 
+	const uzer = userDB.find(
 		(u) => u.emailAddress == emailAddress && u.password == password
 	);
 	console.log("uzer", uzer);
@@ -113,28 +118,37 @@ app.post("/sign-up", (req, res) => {
 		const token = jwt.sign({ emailAddress: uzer.emailAddress }, SECRET_KEY, {
 			expiresIn: "1h",
 		});
-		res.json({ token });
+
+		res.cookie("jwt", token, {
+			httpOnly: true,
+			secure: true,
+			sameSite: "strict",
+
+			path: "/",
+			
+		});
+		console.log("cookie sent");
 	} else {
 		res.status(401).json({ message: "Invalid Credentials" });
 	}
 });
 
 app.get("/protected", authenticateJWT, (req, res) => {
+	console.log("yes");
 	res.json({ message: "You have accessed a protected route", user: req.user });
 });
 app.post("/edit", (req, res) => {
-  const id = req.body.id;
-  const newContent = req.body.content;
-  const index = req.body.index;
-  console.log(newContent)
-  const newUser = { ...users[index], content: newContent }
-  console.log(newUser);
-  users.splice(index, 1, newUser);
-  res.json(newUser)
-  
-})
+	const id = req.body.id;
+	const newContent = req.body.content;
+	const index = req.body.index;
+	console.log(`${newContent} hey`);
+	const newUser = { ...users[index], content: newContent };
+	console.log(newUser);
+	users.splice(index, 1, newUser);
+	res.json(newUser);
+});
 const port = 3000;
 
 app.listen(port, () => {
-	console.log(`app listening on port ${port}`);                         
+	console.log(`app listening on port ${port}`);
 });
