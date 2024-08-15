@@ -1,6 +1,27 @@
 const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
+const mongoose = require("mongoose");
+mongoose.connect(
+	"mongodb+srv://maaz100:lYc6Q8zvYEUE3lSw@cluster0.oskwy31.mongodb.net/UserDB"
+);
+const schema = mongoose.Schema;
+const userSchema = new schema({
+	name: "string",
+	email: "string",
+	
+})
+const db = mongoose.connection;
 
+// Event listeners for the connection
+db.on("connected", () => {
+	console.log("Mongoose is connected to MongoDB");
+});
+const User = mongoose.model("hello", userSchema);
+const newUser = new User({
+	name: 'Maaz',
+	email :'maaz@gmail.com'
+})
+newUser.save();
 const express = require("express");
 const app = express();
 const cors = require("cors");
@@ -9,18 +30,17 @@ const jwt = require("jsonwebtoken");
 app.use(cookieParser());
 app.use(
 	cors({
-		origin: "http://localhost:5173", 
 		credentials: true,
+		origin: "http://localhost:5173",
 	})
 );
 require("dotenv").config();
 const SECRET_KEY = process.env.SECRET_KEY;
 const authenticateJWT = (req, res, next) => {
-	// const bearerHeader = req.headers.authorization;
-	// const bearer = bearerHeader.split(' ');
-	// const token = bearer[1];
-	const token = req.cookies.jwt;
-
+	const bearerHeader = req.headers.authorization;
+	const bearer = bearerHeader.split(' ');
+	const token = bearer[1];
+	
 	if (token) {
 		jwt.verify(token, SECRET_KEY, (err, uzer) => {
 			if (err) {
@@ -119,14 +139,7 @@ app.post("/sign-up", (req, res) => {
 			expiresIn: "1h",
 		});
 
-		res.cookie("jwt", token, {
-			httpOnly: true,
-			secure: true,
-			sameSite: "strict",
-
-			path: "/",
-			
-		});
+		res.json({ token });
 		console.log("cookie sent");
 	} else {
 		res.status(401).json({ message: "Invalid Credentials" });
